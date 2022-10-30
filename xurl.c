@@ -300,10 +300,11 @@ static bool parse_host(XURL_INPUT_CONSTNESS char *src,
 
     uint16_t port;
     bool  no_port;
-    if (!parse_port(src, len, i, &no_port, &port))
+    if (!parse_port(src, len, &k, &no_port, &port))
         return false;
     host->port = port;
     host->no_port = no_port;
+    *i = k;
     return true;
 }
 
@@ -339,6 +340,7 @@ static bool parse_path(XURL_INPUT_CONSTNESS char *src,
 
     path_length = k - path_offset;
 
+    *i = k;
     *path = src + path_offset;
     *path_len = path_length;
     return true;
@@ -498,15 +500,15 @@ bool xurl_parse2(XURL_INPUT_CONSTNESS char *src,
         url->userinfo.username_len = 0;
         url->userinfo.password_len = 0;
 
-        if (*i < len && src[*i] != '?' && src[*i] != '#') {
-            /* relative path */
-            if (!parse_path(src, len, i, &url->path, 
-                            &url->path_len))
-                return false;
-        } else {
-            url->path = NULL;
-            url->path_len = 0;
-        }
+        // TODO: Since there was no authority,
+        //       the path is non optional.
+
+        if (*i == len || src[*i] == '?' || src[*i] == '#')
+            return false; // Missing path
+
+        if (!parse_path(src, len, i, &url->path, 
+                        &url->path_len))
+            return false;
     }
 
     if (!parse_query(src, len, i, &url->query, 
