@@ -109,8 +109,8 @@ static bool generate_uri(size_t i, const URLConfig *config,
         case __COUNTER__: k = snprintf(dst, max, "//[%s]%s?%s#%s",    host_ipv6, abs_path, query, fragment);       flags = HAVE_HOST_IPV6 | HAVE_ABS_PATH | HAVE_QUERY | HAVE_FRAGMENT; break;
         case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d",         host_ipv6, port);                            flags = HAVE_HOST_IPV6 | HAVE_PORT;                                  break;
         case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d#%s",      host_ipv6, port, fragment);                  flags = HAVE_HOST_IPV6 | HAVE_PORT | HAVE_FRAGMENT;                  break;
-        case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d?%s",      host_ipv6, port, query);                     flags = HAVE_HOST_IPV6 | HAVE_QUERY;                                 break;
-        case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d?%s#%s",   host_ipv6, port, query, fragment);           flags = HAVE_HOST_IPV6 | HAVE_QUERY | HAVE_FRAGMENT;                 break;
+        case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d?%s",      host_ipv6, port, query);                     flags = HAVE_HOST_IPV6 | HAVE_PORT | HAVE_QUERY;                                 break;
+        case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d?%s#%s",   host_ipv6, port, query, fragment);           flags = HAVE_HOST_IPV6 | HAVE_PORT | HAVE_QUERY | HAVE_FRAGMENT;                 break;
         case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d%s",       host_ipv6, port, abs_path);                  flags = HAVE_HOST_IPV6 | HAVE_PORT | HAVE_ABS_PATH;                  break;
         case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d%s#%s",    host_ipv6, port, abs_path, fragment);        flags = HAVE_HOST_IPV6 | HAVE_PORT | HAVE_ABS_PATH | HAVE_FRAGMENT;  break;
         case __COUNTER__: k = snprintf(dst, max, "//[%s]:%d%s?%s",    host_ipv6, port, abs_path, query);           flags = HAVE_HOST_IPV6 | HAVE_PORT | HAVE_ABS_PATH | HAVE_QUERY;     break;
@@ -414,10 +414,10 @@ static bool generate_uri(size_t i, const URLConfig *config,
         out->host.name_len = strlen(host_name);
     } else if (flags & HAVE_HOST_IPV4) {
         out->host.mode = XURL_HOSTMODE_IPV4;
-        out->host.ipv4 = ntohl(inet_addr(host_ipv4)); // Endianess?
+        out->host.ipv4 = ntohl(inet_addr(host_ipv4));
     } else if (flags & HAVE_HOST_IPV6) {
         out->host.mode = XURL_HOSTMODE_IPV6;
-        // out->host.ipv6 = inet_addr(host_ipv6); // Endianess?
+        inet_pton(AF_INET6, host_ipv6, &out->host.ipv6); // Endianess?
     } else {
         out->host.mode = XURL_HOSTMODE_NAME;
         out->host.name = NULL;
@@ -684,6 +684,8 @@ int main(void)
         .query = "name=francesco&date=today",
         .fragment = "intro"
     };
+    size_t total = 0;
+    size_t passed = 0;
     xurl_t exp;
     char buffer[1024];
     for (size_t i = 0, len; generate_uri(i, &config, buffer, &len, sizeof(buffer), &exp); i++) {
@@ -697,9 +699,13 @@ int main(void)
         else if (!compare_results(&out, &exp, errfp)) {
             fflush(errfp);
             fprintf(stderr, "\n" ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n%s", buffer, error);
-        } else
+        } else {
             fprintf(stderr, ANSI_COLOR_GREEN "PASSED" ANSI_COLOR_RESET " %s\n", buffer);
+            passed++;
+        }
         fclose(errfp);
+        total++;
     }
+    fprintf(stdout, "Passed %ld out of %ld tests\n", passed, total);
     return 0;
 }

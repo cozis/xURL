@@ -216,6 +216,105 @@ static bool parse_ipv4(const char *src, size_t len,
     return true;
 }
 
+static bool parse_ipv6_word(const char *src, size_t len,
+                            size_t *i, uint16_t *out)
+{
+    size_t k = *i;
+
+    if (k == len || !isxdigit(src[k]))
+        return false;
+
+    // TODO: Don't allow arbitrary sequence of
+    //       0s at the start.
+    uint16_t word = 0;
+    do {
+        int d;
+        char c = src[k];
+        if (c >= '0' && c <= '9')
+            d = c - '0';
+        else if (c >= 'a' && c <= 'f')
+            d = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F')
+            d = c - 'A' + 10;
+        else break;
+        if (word > (UINT16_MAX - d) / 16)
+            return false; /* Overflow */
+        word = word * 16 + d;
+        k++;
+    } while (k < len && isdigit(src[k]));
+
+    *i = k;
+    *out = word;
+    return true;
+}
+
+static bool parse_ipv6(const char *src, size_t len,
+                       size_t *i, uint16_t ipv6[static 8])
+{
+    size_t k = *i;
+
+    uint16_t tail[8];
+    size_t head_count = 0;
+    size_t tail_count = 0;
+
+    if (k+1 < len && src[k] == ':' && src[k+1] == ':')
+        k += 2;
+    else {
+        while (1) {
+
+            uint16_t word;
+            if (!parse_ipv6_word(src, len, &k, &word))
+                return false;
+
+            ipv6[head_count++] = word;
+            
+            if (head_count == 8)
+                break;
+            
+            if (k == len || src[k] != ':')
+                return false;
+            k++; // Skip the ':'
+        }
+    } 
+
+    if (head_count + tail_count < 8) do {
+
+        if (k == len || !isxdigit(src[k]))
+            break;
+
+        uint16_t word;
+        if (!parse_ipv6_word(src, len, &k, &word))
+            return false;
+
+        tail[tail_count++] = word;
+        
+        if (head_count + tail_count == 8)
+            break;
+        
+        if (k == len || src[k] != ':')
+            break;
+        k++; // Skip the ':'
+
+        if (k == len)
+            return false;
+
+        if (src[k] == ':') {
+            k++;
+            break;
+        }
+
+    } while (1);
+
+    for (size_t p = 0; p < 8 - head_count - tail_count; p++)
+        ipv6[p] = 0;
+
+    for (size_t p = 0; p < tail_count; p++)
+        ipv6[head_count + p] = tail[p];
+
+    *i = k;
+    return true;
+}
+
 static bool parse_port(const char *src, size_t len, 
                        size_t *i, bool *no_port, 
                        uint16_t *port)
@@ -265,9 +364,18 @@ static bool parse_host(XURL_INPUT_CONSTNESS char *src,
         return false;
     
     if (src[k] == '[') {
+
+        k++; // Skip the '['
         
         // IPv6
-        return false; /* Not implemented yet */
+        if (!parse_ipv6(src, len, &k, host->ipv6))
+            return false;
+
+        if (k == len || src[k] != ']')
+            return false;
+        k++; // Skip the ']'
+
+        host->mode = XURL_HOSTMODE_IPV6;
 
     } else {
 
