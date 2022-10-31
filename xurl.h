@@ -57,3 +57,5 @@ typedef struct {
 
 bool xurl_parse2(XURL_INPUT_CONSTNESS char *src, size_t len, size_t *i, xurl_t *url);
 bool xurl_parse(XURL_INPUT_CONSTNESS char *src, size_t len, xurl_t *url);
+bool xurl_parse_ipv6(const char *src, size_t len, uint16_t out[8]);
+bool xurl_parse_ipv4(const char *src, size_t len, uint32_t *out);
