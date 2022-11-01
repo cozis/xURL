@@ -465,13 +465,15 @@ static bool parse_ipv6(const char *src, size_t len,
     if (head_count + tail_count < 8) {
         while (k < len && is_hex_digit(src[k])) {
 
+            // We know the current character is a
+            // hex digit, therefore [parse_ipv6_word]
+            // won't fail.
             uint16_t word;
-            if (!parse_ipv6_word(src, len, &k, &word))
-                return false;
+            (void) parse_ipv6_word(src, len, &k, &word);
 
             tail[tail_count++] = word;
             
-            if (head_count + tail_count == 8)
+            if (head_count + tail_count == 7)
                 break;
             
             if (k == len || src[k] != ':')
@@ -490,7 +492,7 @@ static bool parse_ipv6(const char *src, size_t len,
     return true;
 }
 
-static bool parse_port(const char *src, size_t len, 
+static void parse_port(const char *src, size_t len, 
                        size_t *i, bool *no_port, 
                        uint16_t *port)
 {
@@ -517,7 +519,6 @@ static bool parse_port(const char *src, size_t len,
     }
 
     *i = k;
-    return true;
 }
 
 static bool is_hostname(char c)
@@ -557,7 +558,7 @@ static bool parse_host(XURL_INPUT_CONSTNESS char *src,
         uint32_t ipv4;
         bool  is_ipv4;
 
-        if (k < len && is_digit(src[k]))
+        if (is_digit(src[k]))
             is_ipv4 = parse_ipv4(src, len, &k, &ipv4);
         else
             is_ipv4 = false;
@@ -567,8 +568,9 @@ static bool parse_host(XURL_INPUT_CONSTNESS char *src,
             host->mode = XURL_HOSTMODE_IPV4;
         } else {
 
-            if (k == len || !is_hostname_first(src[k]))
+            if (!is_hostname_first(src[k]))
                 return false;
+
             size_t name_offset = k;
             do 
                 k++;
@@ -583,8 +585,7 @@ static bool parse_host(XURL_INPUT_CONSTNESS char *src,
 
     uint16_t port;
     bool  no_port;
-    if (!parse_port(src, len, &k, &no_port, &port))
-        return false;
+    parse_port(src, len, &k, &no_port, &port);
     host->port = port;
     host->no_port = no_port;
     *i = k;
@@ -766,9 +767,11 @@ bool xurl_parse2(XURL_INPUT_CONSTNESS char *src,
 
         if (*i < len && src[*i] == '/') {
             /* absolute path */
-            if (!parse_path(src, len, i, &url->path, 
-                            &url->path_len))
-                return false;
+
+            // The parsing of the path can't fail 
+            // because we already know there's at
+            // leat a '/' for it.
+            (void) parse_path(src, len, i, &url->path, &url->path_len);
         } else {
             url->path = NULL;
             url->path_len = 0;

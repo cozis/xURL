@@ -25,6 +25,7 @@ int test_ipv6(size_t *total, size_t *passed)
         "d::",
         "e::",
         "f::",
+        "0:1:2:3::5:6:7",
     };
 
     for (size_t i = 0; i < sizeof(list)/sizeof(list[0]); i++) {

@@ -712,14 +712,41 @@ int test_url(size_t *total, size_t *passed)
         bool success;
         const char *input;
     } list[] = {
+
+        {true, "http"}, // URL starting with something that looks like a schema
+                        // but it's not, and the way the parser finds out is with
+                        // the end of the source string.
+
+
+        {false, "//username:@"}, // URL with userinfo but password omitted after 
+                                 // the separating ':'.
+
         // Hit all error paths of the ipv4 parsing routine
         {false, "http://127.0.0.1000"}, // Digit overflow
+        {true,  "http://127."},  // Source end after dot
         {true,  "http://127.0"},  // Source end after digit
         {true,  "http://127.0x"}, // Something other than a dot after a digit
         {true,  "http://127.0.0.x"}, // Something other than a digit in place of the last byte
 
         // Hit all error paths of the ipv6 parsing routine
-        {false, "http://[x"}, // Something unexpected in place of word
+        {false, "http://["},  // Something unexpected in place of word
+        {false, "http://[x"}, // Something unexpected in place of word (2)
+        {false, "http://[fffff"}, // Word overflow
+
+        {false, "http://example.com:70000"}, // Port overflow
+
+        {false, "http://"}, // Source end before host
+        {false, "http://[0:0:0:0:0:0:0:0"}, // Missing IPv6 closing ']' (source ended)
+        {false, "http://[0:0:0:0:0:0:0:0/"}, // Missing IPv6 closing ']' (other token)
+
+        {false, "http://@"}, // Invalid first character for a host
+
+        {false, "["}, // Invalid first character for a path
+
+        {false, ""},  // URL that's missing both host and path 
+        {false, "?"}, // URL that's missing both host and path (2)
+        {false, "#"}, // URL that's missing both host and path (3)
+
     };
 
     for (size_t i = 0; i < sizeof(list)/sizeof(list[0]); i++) {
@@ -742,6 +769,18 @@ int test_url(size_t *total, size_t *passed)
                 (*passed)++;
             }
         }
+        (*total)++;
+    }
+
+    {
+        const char *input = "http://example.com";
+        xurl_t url;
+        if (xurl_parse2(input, strlen(input), NULL, &url)) {
+            fprintf(stderr, ANSI_COLOR_GREEN "PASSED" ANSI_COLOR_RESET " %s\n", input);
+            (*passed)++;
+        } else
+            fprintf(stderr, "\n" ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n"
+                    "  Parsing failed\n", input);
         (*total)++;
     }
 
