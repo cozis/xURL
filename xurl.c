@@ -320,6 +320,8 @@ static void parse_userinfo(XURL_INPUT_CONSTNESS char *src,
         assert(no_password);
         userinfo->username = NULL;
         userinfo->username_len = 0;
+        userinfo->password = NULL;
+        userinfo->password_len = 0;
         // Don't update [i]
     } else {
         
@@ -842,9 +844,9 @@ bool xurl_parse2(XURL_INPUT_CONSTNESS char *src,
             username[username_len] = '\0';
             char  *password = url->userinfo.password;
             size_t password_len = url->userinfo.password_len;
-            if (password != NULL) {
+            if (password != NULL)
                 password[password_len] = '\0';
-            }
+            
         }
 
         if (url->host.mode == XURL_HOSTMODE_NAME) {
@@ -914,4 +916,3 @@ bool xurl_parse_ipv6(const char *src, size_t len,
     size_t i = 0;
     return parse_ipv6(src, len, &i, out);
 }
-
