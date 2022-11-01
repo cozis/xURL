@@ -359,6 +359,20 @@ static bool parse_ipv4(const char *src, size_t len,
     return true;
 }
 
+static int hex_digit_to_int(char c)
+{
+    assert(isxdigit(c));
+    
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+     
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    
+    assert(c >= '0' && c <= '9');
+    return c - '0';
+}
+
 static bool parse_ipv6_word(const char *src, size_t len,
                             size_t *i, uint16_t *out)
 {
@@ -371,18 +385,7 @@ static bool parse_ipv6_word(const char *src, size_t len,
     //       0s at the start.
     uint16_t word = 0;
     do {
-        int d;
-        char c = src[k];
-        if (c >= '0' && c <= '9')
-            d = c - '0';
-        else 
-            if (c >= 'a' && c <= 'f')
-                d = c - 'a' + 10;
-            else 
-                if (c >= 'A' && c <= 'F')
-                    d = c - 'A' + 10;
-                else 
-                    break;
+        int d = hex_digit_to_int(src[k]);
         if (word > (UINT16_MAX - d) / 16)
             break; /* Overflow */
         word = word * 16 + d;
@@ -428,33 +431,23 @@ static bool parse_ipv6(const char *src, size_t len,
         }
     }
 
-    if (head_count + tail_count < 8) do {
+    if (head_count + tail_count < 8) {
+        while (k < len && isxdigit(src[k])) {
 
-        if (k == len || !isxdigit(src[k]))
-            break;
+            uint16_t word;
+            if (!parse_ipv6_word(src, len, &k, &word))
+                return false;
 
-        uint16_t word;
-        if (!parse_ipv6_word(src, len, &k, &word))
-            return false;
-
-        tail[tail_count++] = word;
-        
-        if (head_count + tail_count == 8)
-            break;
-        
-        if (k == len || src[k] != ':')
-            break;
-        k++; // Skip the ':'
-
-        if (k == len)
-            return false;
-
-        if (src[k] == ':') {
-            k++;
-            break;
+            tail[tail_count++] = word;
+            
+            if (head_count + tail_count == 8)
+                break;
+            
+            if (k == len || src[k] != ':')
+                break;
+            k++; // Skip the ':'
         }
-
-    } while (1);
+    }
 
     for (size_t p = 0; p < 8 - head_count - tail_count; p++)
         ipv6[head_count + p] = 0;
@@ -567,12 +560,6 @@ static bool parse_host(XURL_INPUT_CONSTNESS char *src,
     return true;
 }
 
-static bool follows_authority(const char *src, size_t len, 
-                              size_t i)
-{
-    return i+1 < len && src[i] == '/' && src[i+1] == '/';
-}
-
 static bool parse_path(XURL_INPUT_CONSTNESS char *src, 
                        size_t len, size_t *i, 
                        XURL_INPUT_CONSTNESS char **path,
@@ -587,6 +574,10 @@ static bool parse_path(XURL_INPUT_CONSTNESS char *src,
 
     if (k < len && src[k] == '/') 
         k++;
+    else {
+        if (k == len || !is_pchar(src[k]))
+            return false;
+    }
 
     while (k < len && is_pchar(src[k])) {
         do
@@ -711,6 +702,14 @@ static char *my_strdup(const char *src, size_t len, alloc_t *alloc)
     return dst;
 }
 #endif
+
+static bool follows_authority(const char *src, size_t len, 
+                              size_t i)
+{
+    return i+1 < len 
+        && src[i] == '/' 
+        && src[i+1] == '/';
+}
 
 bool xurl_parse2(XURL_INPUT_CONSTNESS char *src, 
                  size_t len, size_t *i, xurl_t *url)

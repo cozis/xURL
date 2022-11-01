@@ -2,7 +2,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "test.h"
-#include "xurl.h"
+#include "../xurl.h"
 
 int test_ipv4(size_t *total, size_t *passed)
 {

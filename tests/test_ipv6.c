@@ -2,7 +2,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "test.h"
-#include "xurl.h"
+#include "../xurl.h"
 
 int test_ipv6(size_t *total, size_t *passed)
 {
@@ -18,12 +18,13 @@ int test_ipv6(size_t *total, size_t *passed)
         "A:B:C:D:E:F:0::",
         "A:B:C:D:E:F:0:1",
         "0::F",
+        "0::E:F",
         "a::",
         "b::",
         "c::",
         "d::",
         "e::",
-        "f::"
+        "f::",
     };
 
     for (size_t i = 0; i < sizeof(list)/sizeof(list[0]); i++) {
@@ -39,10 +40,10 @@ int test_ipv6(size_t *total, size_t *passed)
             /* Expected success */
 
             if (!xurl_parse_ipv6(input, strlen(input), output)) {
-                fprintf(stderr, ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET "%s\n", input);
+                fprintf(stderr, ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n", input);
                 fprintf(stderr, "  Parsing failed\n");
             } else if (memcmp(expected_ipv6, output, 16)) {
-                fprintf(stderr, ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET "%s\n", input);
+                fprintf(stderr, ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n", input);
                 fprintf(stderr, "  IPv6 doesn't match\n");
                 fprintf(stderr, "    expected %.4X:%.4X:%.4X:%.4X:%.4X:%.4X:%.4X:%.4X\n", 
                         expected_ipv6[0], expected_ipv6[1], 
@@ -61,7 +62,7 @@ int test_ipv6(size_t *total, size_t *passed)
             /* Expected failure */
 
             if (xurl_parse_ipv6(input, strlen(input), output)) {
-                fprintf(stderr, ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET "%s\n", input);
+                fprintf(stderr, ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n", input);
                 fprintf(stderr, "  Parsing succeded unexpectedly\n");
             } else {
                 fprintf(stderr, ANSI_COLOR_GREEN "PASSED" ANSI_COLOR_RESET " %s\n", input);

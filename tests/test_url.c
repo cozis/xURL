@@ -3,7 +3,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "test.h"
-#include "xurl.h"
+#include "../xurl.h"
 
 typedef struct {
     const char *schema;
@@ -52,14 +52,14 @@ static bool generate_uri(size_t i, const URLConfig *config,
     int k, flags;
     switch (i) {
         
-        case __COUNTER__: k = snprintf(dst, max, "%s",                           rel_path                 );       flags = HAVE_REL_PATH;                                               break;
-        case __COUNTER__: k = snprintf(dst, max, "%s#%s",                        rel_path,        fragment);       flags = HAVE_REL_PATH | HAVE_FRAGMENT;                               break;
-        case __COUNTER__: k = snprintf(dst, max, "%s?%s",                        rel_path, query          );       flags = HAVE_REL_PATH | HAVE_QUERY;                                  break;
-        case __COUNTER__: k = snprintf(dst, max, "%s?%s#%s",                     rel_path, query, fragment);       flags = HAVE_REL_PATH | HAVE_QUERY | HAVE_FRAGMENT;                  break;
-        case __COUNTER__: k = snprintf(dst, max, "%s",                           abs_path                 );       flags = HAVE_ABS_PATH;                                               break;
-        case __COUNTER__: k = snprintf(dst, max, "%s#%s",                        abs_path,        fragment);       flags = HAVE_ABS_PATH | HAVE_FRAGMENT;                               break;
-        case __COUNTER__: k = snprintf(dst, max, "%s?%s",                        abs_path, query          );       flags = HAVE_ABS_PATH | HAVE_QUERY;                                  break;
-        case __COUNTER__: k = snprintf(dst, max, "%s?%s#%s",                     abs_path, query, fragment);       flags = HAVE_ABS_PATH | HAVE_QUERY | HAVE_FRAGMENT;                  break;
+        case __COUNTER__: k = snprintf(dst, max, "%s",                rel_path);                    flags = HAVE_REL_PATH;                                 break;
+        case __COUNTER__: k = snprintf(dst, max, "%s#%s",             rel_path, fragment);          flags = HAVE_REL_PATH | HAVE_FRAGMENT;                 break;
+        case __COUNTER__: k = snprintf(dst, max, "%s?%s",             rel_path, query);             flags = HAVE_REL_PATH | HAVE_QUERY;                    break;
+        case __COUNTER__: k = snprintf(dst, max, "%s?%s#%s",          rel_path, query, fragment);   flags = HAVE_REL_PATH | HAVE_QUERY | HAVE_FRAGMENT;    break;
+        case __COUNTER__: k = snprintf(dst, max, "%s",                abs_path);                    flags = HAVE_ABS_PATH;                                 break;
+        case __COUNTER__: k = snprintf(dst, max, "%s#%s",             abs_path, fragment);          flags = HAVE_ABS_PATH | HAVE_FRAGMENT;                 break;
+        case __COUNTER__: k = snprintf(dst, max, "%s?%s",             abs_path, query);             flags = HAVE_ABS_PATH | HAVE_QUERY;                    break;
+        case __COUNTER__: k = snprintf(dst, max, "%s?%s#%s",          abs_path, query, fragment);   flags = HAVE_ABS_PATH | HAVE_QUERY | HAVE_FRAGMENT;    break;
         case __COUNTER__: k = snprintf(dst, max, "//%s",              host_name);                                  flags = HAVE_HOST_NAME;                                              break;
         case __COUNTER__: k = snprintf(dst, max, "//%s#%s",           host_name, fragment);                        flags = HAVE_HOST_NAME | HAVE_FRAGMENT;                              break;
         case __COUNTER__: k = snprintf(dst, max, "//%s?%s",           host_name, query);                           flags = HAVE_HOST_NAME | HAVE_QUERY;                                 break;
@@ -660,8 +660,8 @@ int test_url(size_t *total, size_t *passed)
         .host_ipv4 = "127.0.0.1",
         .host_ipv6 = "::0",
         .port = 8080,
-        .abs_path = "/index.html",
-        .rel_path = "index.html",
+        .abs_path = "/data/index.html",
+        .rel_path = "data/index.html",
         .query = "name=francesco&date=today",
         .fragment = "intro"
     };
