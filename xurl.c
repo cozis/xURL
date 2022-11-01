@@ -323,7 +323,7 @@ static bool parse_ipv4_byte(const char *src, size_t len,
     do {
         int d = src[k] - '0';
         if (byte > (UINT8_MAX - d) / 10)
-            return false; /* Overflow */
+            break;
         byte = byte * 10 + d;
         k++;
     } while (k < len && isdigit(src[k]));
@@ -610,7 +610,7 @@ static bool is_query(char c)
     return is_pchar(c) || c == '/' || c == '?';
 }
 
-static bool parse_query(XURL_INPUT_CONSTNESS char *src, 
+static void parse_query(XURL_INPUT_CONSTNESS char *src, 
                         size_t len, size_t *i, 
                         XURL_INPUT_CONSTNESS char **query, 
                         size_t *query_len)
@@ -642,7 +642,6 @@ static bool parse_query(XURL_INPUT_CONSTNESS char *src,
         *query = src + query_offset;
         *query_len = query_length;
     }
-    return true;
 }
 
 static bool is_fragment(char c)
@@ -650,7 +649,7 @@ static bool is_fragment(char c)
     return is_pchar(c) || c == '/';
 }
 
-static bool parse_fragment(XURL_INPUT_CONSTNESS char *src, 
+static void parse_fragment(XURL_INPUT_CONSTNESS char *src, 
                            size_t len, size_t *i, 
                            XURL_INPUT_CONSTNESS char **fragment,
                            size_t *fragment_len)
@@ -682,7 +681,6 @@ static bool parse_fragment(XURL_INPUT_CONSTNESS char *src,
         *fragment = src + fragment_offset;
         *fragment_len = fragment_length;
     }
-    return true;
 }
 
 #if XURL_ZEROTERMINATE
@@ -764,17 +762,12 @@ bool xurl_parse2(XURL_INPUT_CONSTNESS char *src,
         if (*i == len || src[*i] == '?' || src[*i] == '#')
             return false; // Missing path
 
-        if (!parse_path(src, len, i, &url->path, 
-                        &url->path_len))
+        if (!parse_path(src, len, i, &url->path, &url->path_len))
             return false;
     }
 
-    if (!parse_query(src, len, i, &url->query, 
-                     &url->query_len))
-        return false;
-    if (!parse_fragment(src, len, i, &url->fragment, 
-                        &url->fragment_len))
-        return false;
+    parse_query(src, len, i, &url->query, &url->query_len);
+    parse_fragment(src, len, i, &url->fragment, &url->fragment_len);
 
 #if XURL_ZEROTERMINATE
     {
