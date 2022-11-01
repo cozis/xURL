@@ -342,24 +342,38 @@ static bool parse_ipv4_byte(const char *src, size_t len,
                             size_t *i, uint8_t *out)
 {
     size_t peek = *i;
-    uint8_t byte = 0;
 
-    if (peek == len || !is_digit(src[peek]))
-        return false;
+    // If the cursor refers to a digit, then
+    // there's a byte to parse.
+    bool start_with_digit = (peek < len && is_digit(src[peek]));
 
-    // TODO: Don't allow arbitrary sequence of
-    //       0s at the start.
-    do {
-        int d = src[peek] - '0';
-        if (byte > (UINT8_MAX - d) / 10)
-            break;
-        byte = byte * 10 + d;
-        peek++;
-    } while (peek < len && is_digit(src[peek]));
+    if (start_with_digit) {
 
-    *i = peek;
-    *out = byte;
-    return true;
+        uint8_t byte = 0;
+    
+        // TODO: Don't allow arbitrary sequence of
+        //       0s at the start.
+        do {
+            int d = src[peek] - '0';
+            if (byte > (UINT8_MAX - d) / 10)
+                break; // Overflow! This digit isn't part of the byte.
+            byte = byte * 10 + d;
+            peek++;
+        } while (peek < len && is_digit(src[peek]));
+
+        *i = peek;
+        *out = byte;
+    }
+
+    return start_with_digit;
+}
+
+static uint32_t pack(uint8_t *bytes)
+{
+    return ((uint32_t) bytes[0] << 24)
+         | ((uint32_t) bytes[1] << 16)
+         | ((uint32_t) bytes[2] <<  8)
+         | ((uint32_t) bytes[3] <<  0);
 }
 
 static bool parse_ipv4(const char *src, size_t len, 
@@ -369,23 +383,19 @@ static bool parse_ipv4(const char *src, size_t len,
     uint8_t unpacked_ipv4[4];
 
     for (int u = 0; u < 3; u++) {
+
         if (!parse_ipv4_byte(src, len, &peek, unpacked_ipv4 + u))
             return false;
 
         if (peek == len || src[peek] != '.')
             return false;
+
         peek++; // Skip the dot
     }
     if (!parse_ipv4_byte(src, len, &peek, unpacked_ipv4 + 3))
         return false;
 
-    uint32_t packed_ipv4 = 
-        ((uint32_t) unpacked_ipv4[0] << 24) |
-        ((uint32_t) unpacked_ipv4[1] << 16) |
-        ((uint32_t) unpacked_ipv4[2] <<  8) |
-        ((uint32_t) unpacked_ipv4[3] <<  0);
-
-    *ipv4 = packed_ipv4;
+    *ipv4 = pack(unpacked_ipv4);
     *i = peek;
     return true;
 }
@@ -407,25 +417,36 @@ static int hex_digit_to_int(char c)
 static bool parse_ipv6_word(const char *src, size_t len,
                             size_t *i, uint16_t *out)
 {
-    size_t k = *i;
+    size_t peek = *i;
 
-    if (k == len || !is_hex_digit(src[k]))
-        return false;
+    // If there's at least one hex digit at the
+    // current position, then we can parse a word
+    // for sure.
+    bool start_with_hex_digit = (peek < len && is_hex_digit(src[peek]));
 
-    // TODO: Don't allow arbitrary sequence of
-    //       0s at the start.
-    uint16_t word = 0;
-    do {
-        int d = hex_digit_to_int(src[k]);
-        if (word > (UINT16_MAX - d) / 16)
-            break; /* Overflow */
-        word = word * 16 + d;
-        k++;
-    } while (k < len && is_hex_digit(src[k]));
+    if (start_with_hex_digit) {
 
-    *i = k;
-    *out = word;
-    return true;
+        uint16_t word = 0;
+
+        // TODO: Don't allow arbitrary sequence of
+        //       0s at the start.
+        do {
+            
+            int d = hex_digit_to_int(src[peek]);
+            if (word > (UINT16_MAX - d) / 16)
+                break; // Overflow! This hex digit isn't part of the word.
+            
+            word = word * 16 + d;
+            
+            peek++;
+
+        } while (peek < len && is_hex_digit(src[peek]));
+
+        *i = peek;
+        *out = word;
+    }
+
+    return start_with_hex_digit;
 }
 
 static bool parse_ipv6(const char *src, size_t len,
