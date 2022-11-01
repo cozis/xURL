@@ -706,27 +706,44 @@ int test_url(size_t *total, size_t *passed)
         .query = "name=francesco&date=today",
         .fragment = "intro"
     });
-/*
+
+
     static const struct {
-        const char *input;
         bool success;
+        const char *input;
     } list[] = {
-        {"http://127.0.x.1", true},
+        // Hit all error paths of the ipv4 parsing routine
+        {false, "http://127.0.0.1000"}, // Digit overflow
+        {true,  "http://127.0"},  // Source end after digit
+        {true,  "http://127.0x"}, // Something other than a dot after a digit
+        {true,  "http://127.0.0.x"}, // Something other than a digit in place of the last byte
+
+        // Hit all error paths of the ipv6 parsing routine
+        {false, "http://[x"}, // Something unexpected in place of word
     };
 
-    for (size_t i = 0; i < sizeof(bad_url_list)/sizeof(bad_url_list[0]); i++) {
-        const char *input = bad_url_list[i];
+    for (size_t i = 0; i < sizeof(list)/sizeof(list[0]); i++) {
+        const char *input = list[i].input;
         xurl_t output;
         bool res = xurl_parse(input, strlen(input), &output);
-        if (res)
-            fprintf(stderr, "\n" ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n"
-                    "  Bad input parsed succesfully\n", input);
-        else {
-            fprintf(stderr, "\n" ANSI_COLOR_GREEN "PASSED" ANSI_COLOR_RESET " %s\n", input);
-            (*passed)++;
+        if (list[i].success) {
+            if (res) {
+                fprintf(stderr, ANSI_COLOR_GREEN "PASSED" ANSI_COLOR_RESET " %s\n", input);
+                (*passed)++;
+            } else
+                fprintf(stderr, "\n" ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n"
+                        "  Parsing failed\n", input);
+        } else {
+            if (res)
+                fprintf(stderr, "\n" ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n"
+                        "  Bad input parsed succesfully\n", input);
+            else {
+                fprintf(stderr, ANSI_COLOR_GREEN "PASSED" ANSI_COLOR_RESET " %s\n", input);
+                (*passed)++;
+            }
         }
         (*total)++;
     }
-*/
+
     return 0;
 }

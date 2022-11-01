@@ -29,8 +29,8 @@ static bool is_digit(char c)
 static bool is_hex_digit(char c)
 {
     return is_digit(c) 
-        || (c >= 'a' && c <= 'z')
-        || (c >= 'A' && c <= 'Z');
+        || (c >= 'a' && c <= 'f')
+        || (c >= 'A' && c <= 'F');
 }
 
 static bool is_unreserved(char c)
@@ -872,7 +872,9 @@ bool xurl_parse2(XURL_INPUT_CONSTNESS char *src,
 bool xurl_parse(XURL_INPUT_CONSTNESS char *src, 
                 size_t len, xurl_t *url)
 {
-    return xurl_parse2(src, len, NULL, url);
+    size_t i = 0;
+    bool result = xurl_parse2(src, len, &i, url);
+    return result && i == len;
 }
 
 bool xurl_parse_ipv4(const char *src, size_t len, 
