@@ -42,42 +42,97 @@ static bool is_schema(char c)
         || c == '.';
 }
 
-static bool parse_schema(XURL_INPUT_CONSTNESS char *src, 
+/* Symbol: parse_schema 
+ *   Parse the schema of an url, if there is one.
+ *
+ * Arguments:
+ *          (in) src: The source string.
+ *
+ *               len: The number of bytes pointed by [src].
+ *
+ *      (in/out)   i: Offset from where the parsing should
+ *                    start. When the function returns, its
+ *                    value is incremented by the number of
+ *                    parsed bytes (therefore pointing to the
+ *                    first non-parsed byte). If the url in
+ *                    the source has no schema, it's value
+ *                    is left unchanged.
+ *
+ *      (out) schema: Non zero-terminated string containing
+ *                    the parsed schema. If the url didn't
+ *                    have a schema, it's set to NULL.
+ *
+ *  (out) schema_len: Length of the parsed schema, or 0 if
+ *                    there wasn't one.
+ *
+ * Returns:
+ *   - [i] is incremented by the number of parsed bytes.
+ *
+ *   - [schema] points to the schema string (or NULL if
+ *     there wasn't one).
+ *
+ *   - [schema_len] is the length of the string pointed
+ *     by [schema], or 0 if there was no schema.
+ *
+ * Notes:
+ *   - This function can never fail.
+ */
+static void parse_schema(XURL_INPUT_CONSTNESS char *src, 
                          size_t len, size_t *i, 
                          XURL_INPUT_CONSTNESS char **schema, 
                          size_t *schema_len)
 {
-    size_t peek = *i;
+    size_t peek = *i; // Local cursor
 
     bool no_schema;
     size_t schema_offset;
     size_t schema_length;
     
-    if (peek == len || !is_schema_first(src[peek]))
-        no_schema = true;
-    else {
-        schema_offset = peek;
-        do
-            peek++;
-        while (peek < len && is_schema(src[peek]));
-        schema_length = peek - schema_offset;
-        if (peek == len || src[peek] != ':')
+    // If there is a schema, set [no_schema] to
+    // [false], [schema_offset] to the start of
+    // the schema substring (relative to [src])
+    // and [schema_length] to its length.
+    {
+        if (peek == len || !is_schema_first(src[peek]))
+            // The first character can't be the start
+            // of a schema.
             no_schema = true;
         else {
-            no_schema = false;
-            peek++; // Skip the ':'
+            // The current character is a valid start
+            // for a schema. We'll assume it is until
+            // proven otherwise.
+
+            // Keep track of the current posizion, then
+            // consume all characters that compose the
+            // schema.
+            schema_offset = peek;
+            do
+                peek++;
+            while (peek < len && is_schema(src[peek]));
+            schema_length = peek - schema_offset;
+
+            // If the character following the schema
+            // isn't a ':', it wasn't a schema after
+            // all.
+            if (peek == len || src[peek] != ':')
+                no_schema = true;
+            else {
+                no_schema = false;
+                peek++; // Skip the ':'
+            }
         }
     }
 
+    // Update the output parameters.
     if (no_schema) {
         *schema = NULL;
         *schema_len = 0;
+        // Don't unpdate [i]
     } else {
         *schema = src + schema_offset;
         *schema_len = schema_length;
-        *i = peek;
+        *i = peek; // Commit changes.
     }
-    return true;
 }
 
 static bool is_username(char c)
@@ -100,10 +155,58 @@ static bool is_password_first(char c)
     return is_password(c);
 }
 
-static bool parse_userinfo(XURL_INPUT_CONSTNESS char *src, 
+/* Symbol: parse_userinfo
+ *   Parse the userinfo component of an URL,
+ *   if there is one.
+ *
+ *   The userinfo component is a subcomponent
+ *   of the authority. It contains a username
+ *   and, optionally, a password:
+ *
+ *     http://username@example.com
+ *     http://username:password@example.com
+ *
+ *   This functions parses the portion that
+ *   goes from the byte following "//" to 
+ *   the '@'.
+ *
+ * Arguments:
+ *         (in) src: The source string.
+ *
+ *              len: The number of bytes pointed by [src]
+ *
+ *       (in/out) i: Offset from where the parsing should
+ *                   start. When the function returns, its
+ *                   value is incremented by the number of
+ *                   parsed bytes (therefore pointing to the
+ *                   first non-parsed byte). If the url in
+ *                   the source has no userinfo, it's value
+ *                   is left unchanged.
+ *
+ *   (out) userinfo: The result of the parsing. 
+ * 
+ * Returns:
+ *   - [i] is incremented by the number of parsed bytes.
+ *
+ *   - [userinfo] contains the parsed username and
+ *     password. These strings are not zero-terminated.
+ *     If there was no userinfo component, then
+ *     [userinfo.username] and [userinfo.password] are
+ *     NULL and [userinfo.username_len] and
+ *     [userinfo.password_len] are 0. If the username
+ *     is specified but the password isn't, then only
+ *     [userinfo.password] is NULL and 
+ *     [userinfo.password_len] is 0.
+ *
+ * Notes:
+ *   - This function can never fail.
+ */
+static void parse_userinfo(XURL_INPUT_CONSTNESS char *src, 
                            size_t len, size_t *i, 
                            xurl_userinfo *userinfo)
 {
+    size_t peek = *i; // Local cursor
+
     bool no_username;
     bool no_password;
     size_t username_offset;
@@ -111,59 +214,99 @@ static bool parse_userinfo(XURL_INPUT_CONSTNESS char *src,
     size_t password_offset;
     size_t password_length;
 
-    size_t peek = *i;
-    if (peek == len || !is_username_first(src[peek])) {
-        no_username = true;
-        no_password = true;
-    } else {
-        username_offset = peek;
-        do
-            peek++;
-        while (peek < len && is_username(src[peek]));
-        username_length = peek - username_offset;
-        
-        if (peek+1 < len && src[peek] == ':' && is_password_first(src[peek+1])) {
-            peek++; // Skip the ':'
-            password_offset = peek;
-            do
-                peek++;
-            while (peek < len && is_password(src[peek]));
-            password_length = peek - password_offset;
-
-            if (peek == len || src[peek] != '@') {
-                no_username = true;
-                no_password = true;
-            } else {
-                no_username = false;
-                no_password = false;
-                peek++; // Skip the '@'
-            }
-
-        } else if (peek == len || src[peek] != '@') {
+    // If the userinfo subcomponent is present,
+    // set [no_username] to false, [username_offset]
+    // to the offset of the username relative to 
+    // [src] and [username_length] to its length. 
+    // If the password was also specified, do the
+    // same.  
+    {
+        if (peek == len || !is_username_first(src[peek])) {
+            // The first character can't be the first
+            // of an username, therefore there's no
+            // userinfo subcomponent.
             no_username = true;
             no_password = true;
         } else {
-            no_username = false;
-            no_password = true;
-            peek++; // Skip the '@'
+
+            // The first character is a valid start
+            // for an username, therefore we'll assume
+            // that there's a userinfo subcomponent
+            // until proven otherwise.
+
+            // Scan the username while keeping track
+            // of it's offset and length.
+            username_offset = peek;
+            do
+                peek++;
+            while (peek < len && is_username(src[peek]));
+            username_length = peek - username_offset;
+            
+            // If the username is followed by a ':' and
+            // a valid password character, we also expect 
+            // a password.
+            if (peek+1 < len && src[peek] == ':' && is_password_first(src[peek+1])) {
+                
+                peek++; // Skip the ':'
+                
+                // Scan the password while keeping track
+                // of it's offset and length.
+                password_offset = peek;
+                do
+                    peek++;
+                while (peek < len && is_password(src[peek]));
+                password_length = peek - password_offset;
+
+                if (peek == len || src[peek] != '@') {
+                    // If the password isn't followed by a '@',
+                    // then this wasn't a userinfo subcomponent
+                    // after all.
+                    no_username = true;
+                    no_password = true;
+                } else {
+                    // All done. 
+                    no_username = false;
+                    no_password = false;
+                    peek++; // Skip the '@'
+                }
+
+            } else if (peek == len || src[peek] != '@') {
+                // Since no password was specified, if the 
+                // username isn't followed by a '@', then 
+                // this wasn't a userinfo subcomponent after 
+                // all.
+                no_username = true;
+                no_password = true;
+            } else {
+                // All done.
+                no_username = false;
+                no_password = true;
+                peek++; // Skip the '@'
+            }
         }
     }
+
+    // Update the output parameters.
     if (no_username) {
+        assert(no_password);
         userinfo->username = NULL;
         userinfo->username_len = 0;
+        // Don't update [i]
     } else {
+        
         userinfo->username = src + username_offset;
         userinfo->username_len = username_length;
-        *i = peek;
+
+        if (no_password) {
+            userinfo->password = NULL;
+            userinfo->password_len = 0;
+        } else {
+            userinfo->password = src + password_offset;
+            userinfo->password_len = password_length;
+        }
+
+        *i = peek; // Commit changes.
     }
-    if (no_password) {
-        userinfo->password = NULL;
-        userinfo->password_len = 0;
-    } else {
-        userinfo->password = src + password_offset;
-        userinfo->password_len = password_length;
-    }
-    return true;
 }
 
 static bool parse_ipv4_byte(const char *src, size_t len,
@@ -580,16 +723,15 @@ bool xurl_parse2(XURL_INPUT_CONSTNESS char *src,
         i = &maybe;
     }
 
-    if (!parse_schema(src, len, i, &url->schema, 
-                      &url->schema_len))
-        return false;
+    parse_schema(src, len, i, 
+                 &url->schema, 
+                 &url->schema_len);
 
     if (follows_authority(src, len, *i)) {
 
         *i += 2; // Skip the "//"
         
-        if (!parse_userinfo(src, len, i, &url->userinfo))
-            return false;
+        parse_userinfo(src, len, i, &url->userinfo);
 
         if (!parse_host(src, len, i, &url->host))
             return false;

@@ -3,7 +3,7 @@ zero-allocation and (pretty much) zero-copy URL parsing library for C.
 
 To use this library, copy `xurl.c` and `xurl.h` over to your source tree and compile them as they were your own files (include `xurl.h` where you want to use `xurl_*` functions and pass `xurl.c` to your C compiler alongside your other C files)
 
-By default, xURL returns strings that are not zero-terminated. To change this behaviour, you can define `XURL_ZEROTERMINATE` as `1`.
+By default, xURL returns strings that are not zero-terminated. To change this behaviour, you can define `XURL_ZEROTERMINATE` as `1`. To avoid doing copies, null bytes will be strategically placed in the original string.
 
 Here are some cool properties of xURL:
 * Never uses dynamic memory
