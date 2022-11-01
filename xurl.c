@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include <assert.h>
 #include <string.h>
 #include <stdbool.h>
@@ -6,37 +5,67 @@
 
 // [<schema> : ] // [ <username> [ : <password> ] @ ] { <name> | <IPv4> | "[" <IPv5> "]" } [ : <port> ] [ </path> ] [ ? <query> ] [ # <fragment> ]
 
+static bool is_lower_alpha(char c)
+{
+    return c >= 'a' && c <= 'z';
+}
+
+static bool is_upper_alpha(char c)
+{
+    return c >= 'A' && c <= 'Z';
+}
+
+static bool is_alpha(char c)
+{
+    return is_upper_alpha(c)
+        || is_lower_alpha(c);
+}
+
+static bool is_digit(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+static bool is_hex_digit(char c)
+{
+    return is_digit(c) 
+        || (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z');
+}
+
 static bool is_unreserved(char c)
 {
-    return isalpha(c) || isdigit(c) || c == '-' 
-        || c == '.' || c == '_' || c == '~';
+    return is_alpha(c) || is_digit(c) 
+        || c == '-' || c == '.' 
+        || c == '_' || c == '~';
 }
 
 static bool is_subdelim(char c)
 {
-    return c == '!' || c == '$' ||
-           c == '&' || c == '\'' ||
-           c == '(' || c == ')' ||
-           c == '*' || c == '+' ||
-           c == ',' || c == ';' ||
-           c == '=';
+    return c == '!' || c == '$' 
+        || c == '&' || c == '\'' 
+        || c == '(' || c == ')' 
+        || c == '*' || c == '+' 
+        || c == ',' || c == ';' 
+        || c == '=';
 }
 
 static bool is_pchar(char c)
 {
-    return is_unreserved(c) || is_subdelim(c) 
+    return is_unreserved(c) 
+        || is_subdelim(c) 
         || c == ':' || c == '@';
 }
 
 static bool is_schema_first(char c)
 {
-    return isalpha(c);
+    return is_alpha(c);
 }
 
 static bool is_schema(char c)
 {
-    return isalpha(c) 
-        || isdigit(c) 
+    return is_alpha(c) 
+        || is_digit(c) 
         || c == '+' 
         || c == '-'
         || c == '.';
@@ -312,23 +341,23 @@ static void parse_userinfo(XURL_INPUT_CONSTNESS char *src,
 static bool parse_ipv4_byte(const char *src, size_t len,
                             size_t *i, uint8_t *out)
 {
-    size_t k = *i;
+    size_t peek = *i;
     uint8_t byte = 0;
 
-    if (k == len || !isdigit(src[k]))
+    if (peek == len || !is_digit(src[peek]))
         return false;
 
     // TODO: Don't allow arbitrary sequence of
     //       0s at the start.
     do {
-        int d = src[k] - '0';
+        int d = src[peek] - '0';
         if (byte > (UINT8_MAX - d) / 10)
             break;
         byte = byte * 10 + d;
-        k++;
-    } while (k < len && isdigit(src[k]));
+        peek++;
+    } while (peek < len && is_digit(src[peek]));
 
-    *i = k;
+    *i = peek;
     *out = byte;
     return true;
 }
@@ -336,17 +365,18 @@ static bool parse_ipv4_byte(const char *src, size_t len,
 static bool parse_ipv4(const char *src, size_t len, 
                        size_t *i, uint32_t *ipv4)
 {
+    size_t peek = *i;
     uint8_t unpacked_ipv4[4];
 
     for (int u = 0; u < 3; u++) {
-        if (!parse_ipv4_byte(src, len, i, unpacked_ipv4 + u))
+        if (!parse_ipv4_byte(src, len, &peek, unpacked_ipv4 + u))
             return false;
 
-        if (*i == len || src[*i] != '.')
+        if (peek == len || src[peek] != '.')
             return false;
-        (*i)++; // Skip the dot
+        peek++; // Skip the dot
     }
-    if (!parse_ipv4_byte(src, len, i, unpacked_ipv4 + 3))
+    if (!parse_ipv4_byte(src, len, &peek, unpacked_ipv4 + 3))
         return false;
 
     uint32_t packed_ipv4 = 
@@ -356,20 +386,21 @@ static bool parse_ipv4(const char *src, size_t len,
         ((uint32_t) unpacked_ipv4[3] <<  0);
 
     *ipv4 = packed_ipv4;
+    *i = peek;
     return true;
 }
 
 static int hex_digit_to_int(char c)
 {
-    assert(isxdigit(c));
+    assert(is_hex_digit(c));
     
-    if (c >= 'a' && c <= 'f')
+    if (is_lower_alpha(c))
         return c - 'a' + 10;
-     
-    if (c >= 'A' && c <= 'F')
+    
+    if (is_upper_alpha(c))
         return c - 'A' + 10;
     
-    assert(c >= '0' && c <= '9');
+    assert(is_digit(c));
     return c - '0';
 }
 
@@ -378,7 +409,7 @@ static bool parse_ipv6_word(const char *src, size_t len,
 {
     size_t k = *i;
 
-    if (k == len || !isxdigit(src[k]))
+    if (k == len || !is_hex_digit(src[k]))
         return false;
 
     // TODO: Don't allow arbitrary sequence of
@@ -390,7 +421,7 @@ static bool parse_ipv6_word(const char *src, size_t len,
             break; /* Overflow */
         word = word * 16 + d;
         k++;
-    } while (k < len && isxdigit(src[k]));
+    } while (k < len && is_hex_digit(src[k]));
 
     *i = k;
     *out = word;
@@ -432,7 +463,7 @@ static bool parse_ipv6(const char *src, size_t len,
     }
 
     if (head_count + tail_count < 8) {
-        while (k < len && isxdigit(src[k])) {
+        while (k < len && is_hex_digit(src[k])) {
 
             uint16_t word;
             if (!parse_ipv6_word(src, len, &k, &word))
@@ -465,7 +496,7 @@ static bool parse_port(const char *src, size_t len,
 {
     size_t k = *i;
 
-    if (k+1 < len && src[k] == ':' && isdigit(src[k+1])) {
+    if (k+1 < len && src[k] == ':' && is_digit(src[k+1])) {
 
         k++; // Skip the ':'
         
@@ -476,7 +507,7 @@ static bool parse_port(const char *src, size_t len,
                 break;
             p = p * 10 + d;
             k++;
-        } while (k < len && isdigit(src[k]));
+        } while (k < len && is_digit(src[k]));
         
         *port = p;
         *no_port = false;
@@ -526,7 +557,7 @@ static bool parse_host(XURL_INPUT_CONSTNESS char *src,
         uint32_t ipv4;
         bool  is_ipv4;
 
-        if (k < len && isdigit(src[k]))
+        if (k < len && is_digit(src[k]))
             is_ipv4 = parse_ipv4(src, len, &k, &ipv4);
         else
             is_ipv4 = false;

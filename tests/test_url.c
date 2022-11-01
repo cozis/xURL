@@ -477,7 +477,10 @@ static bool compare_results(xurl_t *out, xurl_t *exp, FILE *fp)
                     failed = true;
                 } else {
                     if (out->host.name_len != exp->host.name_len) {
-                        fprintf(fp, "  Host name length doesn't match\n");
+                        fprintf(fp, "  Host name length doesn't match %ld != %ld (got \"%.*s\" but expected \"%.*s\")\n",
+                                out->host.name_len, exp->host.name_len,
+                                (int) out->host.name_len, out->host.name,
+                                (int) exp->host.name_len, exp->host.name);
                         failed = true;
                     } else if (out->host.name == NULL && strncmp(out->host.name, exp->host.name, out->host.name_len)) {
                         fprintf(fp, "  Host name string doesn't match\n");
@@ -650,24 +653,11 @@ static bool compare_results(xurl_t *out, xurl_t *exp, FILE *fp)
     return !failed;
 }
 
-int test_url(size_t *total, size_t *passed)
+static void test_config(size_t *total, size_t *passed, const URLConfig *config)
 {
-    static const URLConfig config = {
-        .schema = "http",
-        .username = "cozis",
-        .password = "mysecret",
-        .host_name = "example.com",
-        .host_ipv4 = "127.0.0.1",
-        .host_ipv6 = "::0",
-        .port = 8080,
-        .abs_path = "/data/index.html",
-        .rel_path = "data/index.html",
-        .query = "name=francesco&date=today",
-        .fragment = "intro"
-    };
     xurl_t exp;
     char buffer[1024];
-    for (size_t i = 0, len; generate_uri(i, &config, buffer, &len, sizeof(buffer), &exp); i++) {
+    for (size_t i = 0, len; generate_uri(i, config, buffer, &len, sizeof(buffer), &exp); i++) {
         xurl_t out;
         bool res = xurl_parse(buffer, len, &out);
 
@@ -685,5 +675,58 @@ int test_url(size_t *total, size_t *passed)
         fclose(errfp);
         (*total)++;
     }
+}
+
+int test_url(size_t *total, size_t *passed)
+{
+    test_config(total, passed, &(URLConfig) {
+        .schema = "http",
+        .username = "cozis",
+        .password = "mysecret",
+        .host_name = "example.com",
+        .host_ipv4 = "127.0.0.1",
+        .host_ipv6 = "::0",
+        .port = 8080,
+        .abs_path = "/data/index.html",
+        .rel_path = "data/index.html",
+        .query = "name=francesco&date=today",
+        .fragment = "intro"
+    });
+
+    test_config(total, passed, &(URLConfig) {
+        .schema = "http",
+        .username = "cozis",
+        .password = "mysecret",
+        .host_name = "127.0.x.1",
+        .host_ipv4 = "127.0.0.1",
+        .host_ipv6 = "::0",
+        .port = 80,
+        .abs_path = "/data/index.html",
+        .rel_path = "data/index.html",
+        .query = "name=francesco&date=today",
+        .fragment = "intro"
+    });
+/*
+    static const struct {
+        const char *input;
+        bool success;
+    } list[] = {
+        {"http://127.0.x.1", true},
+    };
+
+    for (size_t i = 0; i < sizeof(bad_url_list)/sizeof(bad_url_list[0]); i++) {
+        const char *input = bad_url_list[i];
+        xurl_t output;
+        bool res = xurl_parse(input, strlen(input), &output);
+        if (res)
+            fprintf(stderr, "\n" ANSI_COLOR_RED "FAILED" ANSI_COLOR_RESET " %s\n"
+                    "  Bad input parsed succesfully\n", input);
+        else {
+            fprintf(stderr, "\n" ANSI_COLOR_GREEN "PASSED" ANSI_COLOR_RESET " %s\n", input);
+            (*passed)++;
+        }
+        (*total)++;
+    }
+*/
     return 0;
 }
