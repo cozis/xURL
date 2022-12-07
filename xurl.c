@@ -669,9 +669,8 @@ static void parse_query(XURL_INPUT_CONSTNESS char *src,
     if (peek < len && src[peek] == '?') {
         peek++; // Skip the '?'
         query_offset = peek;
-        do
+        while (peek < len && is_query(src[peek]))
             peek++;
-        while (peek < len && is_query(src[peek]));
         query_length = peek - query_offset;
         no_query = false;
     } else {
@@ -708,9 +707,8 @@ static void parse_fragment(XURL_INPUT_CONSTNESS char *src,
     if (peek < len && src[peek] == '#') {
         peek++; // Skip the '#'
         fragment_offset = peek;
-        do
+        while (peek < len && is_fragment(src[peek]))
             peek++;
-        while (peek < len && is_fragment(src[peek]));
         fragment_length = peek - fragment_offset;
         no_fragment = false;
     } else {

@@ -707,6 +707,20 @@ int test_url(size_t *total, size_t *passed)
         .fragment = "intro"
     });
 
+    test_config(total, passed, &(URLConfig) {
+        .schema = "http",
+        .username = "cozis",
+        .password = "mysecret",
+        .host_name = "127.0.x.1",
+        .host_ipv4 = "127.0.0.1",
+        .host_ipv6 = "::0",
+        .port = 80,
+        .abs_path = "/data/index.html",
+        .rel_path = "data/index.html",
+        .query = "",
+        .fragment = ""
+    });
+
 
     static const struct {
         bool success;
